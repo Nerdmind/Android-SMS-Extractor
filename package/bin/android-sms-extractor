@@ -32,21 +32,19 @@ parser = ArgumentParser(prog="android-sms-extractor",
 	description="Android SMS Extractor")
 
 #===============================================================================
-# Define positional arguments
+# Define arguments
 #===============================================================================
 parser.add_argument('db_file', action='store',
 	help="Path to the SQLite database file")
+
+parser.add_argument('--datetime-format', action='store', dest='dt_format',
+	help="Set datetime (strftime) format for text output (default: %(default)s)",
+	default="%Y-%m-%d %H:%M:%S")
 
 #===============================================================================
 # Parse arguments
 #===============================================================================
 args = parser.parse_args()
-
-# Default
-date_format_string = "%Y-%m-%d %H:%M:%S"
-
-# German version
-# date_format_string = "am %d.%m.%Y um %H:%M:%S"
 
 if not os.path.isfile(args.db_file):
 	exit("Could not open file »{}«".format(args.db_file))
@@ -80,7 +78,7 @@ for conversation in c.fetchall():
 
 		# Remove the last 3 digits (milliseconds) from timestamp
 		msg_time = int(str(msg_time)[:-3])
-		msg_time_formatted = datetime.fromtimestamp(msg_time).strftime(date_format_string)
+		msg_time_formatted = datetime.fromtimestamp(msg_time).strftime(args.dt_format)
 
 		sim_slot_id = result[3]
 
