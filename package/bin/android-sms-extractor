@@ -4,7 +4,7 @@
 ##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 #                                                                              #
 # Extract all SMS from the SQLite database of the com.android.messaging app as #
-# simple plain text sorted by conversation to stdout or a file.                #
+# simple plain text sorted by conversation to stdout.                          #
 #                                                                              #
 # USAGE INSTRUCTIONS (tested with SMS app in LineageOS 14.1 and 17.1):         #
 # 1. Enable USB debugging in the developer options of your Android.            #
@@ -19,9 +19,7 @@
 ##%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
 
 import os
-import sys
 import sqlite3
-
 from datetime import datetime
 from argparse import ArgumentParser
 
@@ -31,9 +29,6 @@ from argparse import ArgumentParser
 parser = ArgumentParser(prog="android-sms-extractor",
 	description="Android SMS Extractor")
 
-#===============================================================================
-# Define arguments
-#===============================================================================
 parser.add_argument('db_file', action='store',
 	help="Path to the SQLite database file")
 
@@ -46,16 +41,25 @@ parser.add_argument('--datetime-format', action='store', dest='dt_format',
 #===============================================================================
 args = parser.parse_args()
 
+#===============================================================================
+# Check if db_file argument is a file
+#===============================================================================
 if not os.path.isfile(args.db_file):
 	exit("Could not open file »{}«".format(args.db_file))
 
-# Establish connection to local SQLite database
-connection = sqlite3.connect(args.db_file)
+#===============================================================================
+# Establish connection to SQLite database
+#===============================================================================
+db_conn = sqlite3.connect(args.db_file)
 
 # Get a cursor to the SQLite database connection
-c = connection.cursor();
+c = db_conn.cursor()
 
-c.execute("SELECT conversations._id, conversations.name, conversations.participant_normalized_destination \
+#===============================================================================
+# Query and loop through all SMS conversations
+#===============================================================================
+c.execute("SELECT conversations._id, conversations.name, \
+	conversations.participant_normalized_destination \
 	FROM conversations WHERE latest_message_id NOT NULL ORDER BY name")
 
 for conversation in c.fetchall():
@@ -67,8 +71,11 @@ for conversation in c.fetchall():
 	print("{} [{}]".format(data_name, data_dest))
 	print("==================================================")
 
-	c.execute("SELECT messages._id, parts.text, parts.timestamp, participants.sim_slot_id FROM messages \
-		LEFT JOIN parts ON messages._id = parts.message_id LEFT JOIN participants ON messages.sender_id = participants._id \
+	# Query and loop through all messages in this conversation
+	c.execute("SELECT messages._id, parts.text, parts.timestamp, \
+		participants.sim_slot_id FROM messages \
+		LEFT JOIN parts ON messages._id = parts.message_id \
+		LEFT JOIN participants ON messages.sender_id = participants._id \
 		WHERE messages.conversation_id = ? ORDER BY parts.timestamp", (data_id,))
 
 	for result in c.fetchall():
@@ -88,4 +95,5 @@ for conversation in c.fetchall():
 		else:
 			msg_direction = "<---"
 
-		print("[{} {}]:\n{}\n".format(msg_time_formatted, msg_direction, msg_text))
+		print("[{} {}]:\n{}\n".format(
+			msg_time_formatted, msg_direction, msg_text))
